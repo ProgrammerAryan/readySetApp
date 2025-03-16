@@ -1,19 +1,22 @@
+from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
+import sqlite3
 
-# Maps location strings to coordinates
-MOCK_GEOCODING = {
-    'New York, NY': (40.7128, -74.0060),
-    'Los Angeles, CA': (34.0522, -118.2437),
-    'Chicago, IL': (41.8781, -87.6298),
-    'Houston, TX': (29.7604, -95.3698),
-    'Phoenix, AZ': (33.4484, -112.0740)
-}
+geolocator = Nominatim(user_agent="QuickCare")
 
 def get_user_coordinates(location_string):
-    #default to NYC if location not found
-    return MOCK_GEOCODING.get(location_string, (40.7128, -74.0060))
+    """Convert location string to coordinates."""
+    try:
+        location = geolocator.geocode(location_string)
+        if location:
+            return location.latitude, location.longitude
+        raise ValueError("Location not found")
+    except Exception as e:
+        print(f"Geocoding failed (using default): {e}")
+        return 40.7128, -74.0060  # Default to NYC as fallback
 
 def calculate_distances(user_lat, user_lon, facilities):
+    """Calculate distances and add wait times to facilities."""
     user_coords = (user_lat, user_lon)
     for facility in facilities:
         facility_coords = (facility['lat'], facility['lon'])
@@ -23,6 +26,7 @@ def calculate_distances(user_lat, user_lon, facilities):
     return facilities
 
 def get_wait_time(place_id):
+    """Retrieve wait time from database."""
     try:
         conn = sqlite3.connect('quickcare.db')
         c = conn.cursor()
@@ -30,5 +34,6 @@ def get_wait_time(place_id):
         result = c.fetchone()
         conn.close()
         return result[0] if result else 30  # Default to 30 min
-    except:
+    except Exception as e:
+        print(f"Database error: {e}")
         return 30
